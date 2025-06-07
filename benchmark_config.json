@@ -1,0 +1,15 @@
+{
+  "bag": "/datasets/KITTI_raw/kitti_0022",
+  "rate": 0.5,
+  "read_ahead_queue_size": 1000,
+  "point_cloud_topic": "/kitti/velo/pointcloud",
+  "wait_after": 5,
+  "benchmarks": [
+    {
+      "name": "rcpcc",
+      "launch_pkg": "rcpcc",
+      "launch_file": "bag_record.launch.py",
+      "launch_args": "point_cloud_topic:=/kitti/velo/pointcloud"
+    }
+  ]
+}
