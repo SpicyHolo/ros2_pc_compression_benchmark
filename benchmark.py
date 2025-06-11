@@ -174,13 +174,13 @@ class Slam:
 def load_benchmark_process_config(constructor, config, *args):
     return [constructor(constructor_config, *args) for constructor_config in config]
 
-def run_benchmark(config_path, compression_data):
-    benchmark_dir = datetime.now().strftime("benchmark_%Y-%m-%d_%H-%M-%S")
+def run_compression(config, benchmark_dir,compression_data):
+    if compression_data:
+        bags = compression_data['bags']
+        compression_launches = compression_data['compression_launches']
+        benchmark_dir = compression_data['benchmark_dir']
 
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-
-    if not compression_data:
+    else:
         bags = load_benchmark_process_config(ROSBag, config.get('bags'), benchmark_dir)
         compression_launches = load_benchmark_process_config(Compression, config.get('compression'), benchmark_dir)
 
@@ -191,15 +191,15 @@ def run_benchmark(config_path, compression_data):
             for compression in compression_launches:
                 print(f"[INFO] Running preprocessing: {compression.name}")
                 compression.launch(bag)
+
         pickle_path = f"{benchmark_dir}/compression_data.pkl"
         with open(pickle_path, 'wb') as f:
             pickle.dump({'bags': bags, 'compression_launches': compression_launches, 'benchmark_dir': benchmark_dir}, f)
 
-    else:
-        bags = compression_data['bags']
-        compression_launches = compression_data['compression_launches']
-        benchmark_dir = compression_data['benchmark_dir']
-    
+    return bags, compression_launches, benchmark_dir
+
+def run_slam(config, benchmark_dir, bags, compression_launches):
+    # Run SLAM
     slam_launches = load_benchmark_process_config(Slam, config.get('slam'), benchmark_dir)
 
     print(f"[INFO] Starting SLAM Benchmarks...")
@@ -207,6 +207,20 @@ def run_benchmark(config_path, compression_data):
         for compression in compression_launches:
             for slam in slam_launches:
                 slam.launch(bag, compression)
+    return slam_launches
+
+def run_benchmark(config_path, compression_data):
+    benchmark_dir = datetime.now().strftime("benchmark_%Y-%m-%d_%H-%M-%S")
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
+    # Run compression step
+    bags, compression_launches, benchmark_dir = run_compression(config, benchmark_dir, compression_data)
+
+    # Run SLAM
+    slam_launches = run_slam(config, benchmark_dir, bags, compression_launches)
+
+
 
 def load_pickle(path):
     if os.path.isfile(path):
