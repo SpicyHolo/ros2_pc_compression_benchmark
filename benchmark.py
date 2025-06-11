@@ -158,7 +158,7 @@ class Slam:
                                            stdin=subprocess.DEVNULL, 
                                            stdout=subprocess.PIPE, 
                                            stderr=subprocess.PIPE,
-                                           preexec_fn=os.setsid)
+                                           env=env)
 
             print(f"[INFO] Launching SLAM...")
             launch_proc.wait()
