@@ -1,11 +1,10 @@
 import argparse
 import json
 import os
-import shlex
 import signal
 import subprocess
 import time
-import warnings
+import pickle
 
 from datetime import datetime
 from pathlib import Path
@@ -175,23 +174,36 @@ class Slam:
 def load_benchmark_process_config(constructor, config, *args):
     return [constructor(constructor_config, *args) for constructor_config in config]
 
-def run_benchmark(config_path):
+def run_benchmark(config_path, compression_data):
     benchmark_dir = datetime.now().strftime("benchmark_%Y-%m-%d_%H-%M-%S")
 
     with open(config_path, 'r') as f:
         config = json.load(f)
 
-    bags = load_benchmark_process_config(ROSBag, config.get('bags'), benchmark_dir)
-    compression_launches = load_benchmark_process_config(Compression, config.get('compression'), benchmark_dir)
-    slam_launches = load_benchmark_process_config(Slam, config.get('slam'), benchmark_dir)
+    if not compression_data:
+        bags = load_benchmark_process_config(ROSBag, config.get('bags'), benchmark_dir)
+        compression_launches = load_benchmark_process_config(Compression, config.get('compression'), benchmark_dir)
 
-    for bag in bags:
-        print("****************************")
-        print(f"[INFO] Running preprocessing for bag: {bag.name}")
-        
-        for compression in compression_launches:
-            print(f"[INFO] Running preprocessing: {compression.name}")
-            compression.launch(bag)
+        for bag in bags:
+            print("****************************")
+            print(f"[INFO] Running preprocessing for bag: {bag.name}")
+            
+            for compression in compression_launches:
+                print(f"[INFO] Running preprocessing: {compression.name}")
+                compression.launch(bag)
+        pickle_path = f"{benchmark_dir}/compression_data.pkl"
+        with open(pickle_path, 'wb') as f:
+            pickle.dump({'bags': bags, 'compression_launches': compression_launches, 'benchmark_dir': benchmark_dir}, f)
+
+    else:
+        with open(compression_data, 'rb') as f:
+            data = pickle.load(f)
+
+        bags = data['bags']
+        compression_launches = data['compression_launches']
+        benchmark_dir = data['benchmark_dir']
+    
+    slam_launches = load_benchmark_process_config(Slam, config.get('slam'), benchmark_dir)
 
     print(f"[INFO] Starting SLAM Benchmarks...")
     for bag in bags:
@@ -199,12 +211,32 @@ def run_benchmark(config_path):
             for slam in slam_launches:
                 slam.launch(bag, compression)
 
+def load_pickle(path):
+    if os.path.isfile(path):
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+        print(f"Data loaded from {path}")
+        return data
+    else:
+        raise FileNotFoundError(f"No file found at {path}")
+
 def main():
     parser = argparse.ArgumentParser(description="Run rosbag + multiple launch file benchmarks from JSON config.")
     parser.add_argument('--config', required=True, help='Path to JSON benchmark config file')
+    parser.add_argument('--load_compress', type=str, default="", help='Path to pickle')
     args = parser.parse_args()
+    
+    # Load compresion stage
+    compression_data = None
+    if args.load_compress:
+        try:
+            compression_data = load_pickle(args.load_compress)
+            
+            print("[INFO] Loaded compression stage")
+        except Exception as e:
+            print("[ERROR] Loading compression stage:", e)
 
-    run_benchmark(args.config)
+    run_benchmark(args.config, compression_data=compression_data)
 
 if __name__ == '__main__':
     main()
