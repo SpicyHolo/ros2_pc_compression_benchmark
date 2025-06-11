@@ -1,16 +1,15 @@
 { "bags": [
     {
       "path": "/datasets/KITTI_raw/kitti_0022", 
-      "rate": 0.5, 
       "read_ahead_queue_size": 1000, 
       "point_cloud_topic": "/kitti/velo/pointcloud", 
       "imu_topic": "/kitti/oxts/imu",
       "gps_topic": "/kitti/oxts/gps/fix",
-      "wait_after": 5
     }
   ], 
   "compression": [
     {
+      "bag_rate": 0.5
       "name": "rcpcc", 
       "launch_pkg": "rcpcc", 
       "launch_file": "bag_record.launch.py", 
@@ -22,6 +21,15 @@
         "compression_mode:=2",
         "additional_topics:={additional_topics}"
       ]
+      "post_delay": 5
+    }
+  ],
+  "slam": [
+    {
+      "name": "mola",
+      "imu": true,
+      "gps": true,
+      "post_delay": 5
     }
   ]
 }
