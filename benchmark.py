@@ -100,7 +100,8 @@ class Compression:
             print(f"[INFO] Launched rosbag and compression. Waiting for rosbag to finish...")
             bag_length = rosbag.get_length()
             if (bag_length := rosbag.get_length()):
-                for _ in tqdm(range(int(bag_length*10)), desc="Processing bag", leave=False):
+                iter = int(bag_length * float(self.bag_rate) * 10)
+                for _ in tqdm(range(iter), desc="Processing bag", leave=False, position=1):
                     time.sleep(0.1)  # Simulate work
 
             bag_proc.wait()
@@ -221,7 +222,7 @@ def run_slam(config: Dict[str, Any], benchmark_dir: Path, bags: List[ROSBag], co
     print(f"[INFO] Starting SLAM Benchmarks...")
     total_iter = len(bags) * len(compression_launches) * len(slam_launches)
 
-    with tqdm(total=total_iter) as pbar:
+    with tqdm(total=total_iter, desc="All Bags", position=0) as pbar:
         for bag in bags:
             for compression in compression_launches:
                 for slam in slam_launches:
