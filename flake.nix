@@ -11,7 +11,7 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
-        pythonEnv = pkgs.python311.withPackages (ps: with ps; []);
+        pythonEnv = pkgs.python311.withPackages (ps: with ps; [tqdm]);
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = [
