@@ -40,6 +40,10 @@ class ROSLaunch:
 
 class ROSBag:
     def __init__(self, bag_config, basedir):
+        if DEBUG:
+            print(f"[DEBUG] Created ROSBag object.")
+            print(bag_config)
+
         self.dir = basedir
         # Bag play variables
         self.path = bag_config.get('path')

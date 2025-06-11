@@ -1,6 +1,6 @@
 { "bags": [
     {
-      "bag": "/datasets/KITTI_raw/kitti_0022", 
+      "path": "/datasets/KITTI_raw/kitti_0022", 
       "rate": 0.5, 
       "read_ahead_queue_size": 1000, 
       "point_cloud_topic": "/kitti/velo/pointcloud", 
@@ -9,7 +9,7 @@
       "wait_after": 5
     }
   ], 
-  "preprocess": [
+  "compression": [
     {
       "name": "rcpcc", 
       "launch_pkg": "rcpcc", 
