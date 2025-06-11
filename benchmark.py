@@ -38,7 +38,7 @@ class ROSBag:
         return f"<ROSBag path={self.path}, topic={self.point_cloud_topic}, imu:{self.imu_topic}, gps: {self.gps_topic}>"
 
     def add_compressed_bag(self, compression_name, bag_path):
-        self.compressed_bags[compression_name, bag_path]
+        self.compressed_bags[compression_name] = bag_path
 
 
 class Compression:
