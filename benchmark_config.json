@@ -4,12 +4,12 @@
       "read_ahead_queue_size": 1000, 
       "point_cloud_topic": "/kitti/velo/pointcloud", 
       "imu_topic": "/kitti/oxts/imu",
-      "gps_topic": "/kitti/oxts/gps/fix",
+      "gps_topic": "/kitti/oxts/gps/fix"
     }
   ], 
   "compression": [
     {
-      "bag_rate": 0.5
+      "bag_rate": 0.5,
       "name": "rcpcc", 
       "launch_pkg": "rcpcc", 
       "launch_file": "bag_record.launch.py", 
@@ -20,7 +20,7 @@
         "output_topic:={output_topic}",
         "compression_mode:=2",
         "additional_topics:={additional_topics}"
-      ]
+      ],
       "post_delay": 5
     }
   ],

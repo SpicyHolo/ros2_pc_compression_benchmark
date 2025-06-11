@@ -153,7 +153,7 @@ class Slam:
         
         launch_proc = None
         try:
-            launch_cmd = [f'mola-lo-gui-rosbag2 {bag_path}']
+            launch_cmd = ['mola-lo-gui-rosbag2', bag_path]
             launch_proc = subprocess.Popen(launch_cmd, 
                                            stdin=subprocess.DEVNULL, 
                                            stdout=subprocess.PIPE, 
@@ -196,12 +196,9 @@ def run_benchmark(config_path, compression_data):
             pickle.dump({'bags': bags, 'compression_launches': compression_launches, 'benchmark_dir': benchmark_dir}, f)
 
     else:
-        with open(compression_data, 'rb') as f:
-            data = pickle.load(f)
-
-        bags = data['bags']
-        compression_launches = data['compression_launches']
-        benchmark_dir = data['benchmark_dir']
+        bags = compression_data['bags']
+        compression_launches = compression_data['compression_launches']
+        benchmark_dir = compression_data['benchmark_dir']
     
     slam_launches = load_benchmark_process_config(Slam, config.get('slam'), benchmark_dir)
 
