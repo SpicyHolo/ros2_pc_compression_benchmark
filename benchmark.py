@@ -118,6 +118,13 @@ class Slam:
         map_path = self.dir / 'maps' / f"{rosbag.name}_{compression.name if compression else ''}_{self.name}.simplemap"
         traj_path = self.dir / 'traj' / f"{rosbag.name}_{compression.name if compression else ''}_{self.name}.tum"
         bag_path = rosbag.compressed_bags[compression.name] if compression else rosbag.path
+       
+        # Create directories
+        map_dir = self.dir / 'maps'
+        map_dir.mkdir(parents=True, exist_ok=True)
+
+        traj_dir = self.dir / 'traj'
+        traj_dir.mkdir(parents=True, exist_ok=True)
 
         env = os.environ.copy()
         env.update({
