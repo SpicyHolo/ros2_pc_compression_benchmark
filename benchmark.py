@@ -9,7 +9,6 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Tuple, Dict, Any, Callable
-from tqdm import tqdm
 
 DEBUG = True
 
@@ -98,12 +97,8 @@ class Compression:
                                         stderr=subprocess.PIPE)
 
             print(f"[INFO] Launched rosbag and compression. Waiting for rosbag to finish...")
-            bag_length = rosbag.get_length()
             if (bag_length := rosbag.get_length()):
-                # Estimated time of rosbag play, for tqdm
-                iter = int(bag_length / float(self.bag_rate) * 10)
-                for _ in tqdm(range(iter), desc="Processing bag"):
-                    time.sleep(0.1)  # Simulate work
+                print(f"[INFO] Estimated length: {bag_length / float(self.bag_rate):.2f}s")  
 
             bag_proc.wait()
 
