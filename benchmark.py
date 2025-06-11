@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Tuple, Dict, Any, Callable
+from tqdm import tqdm
 
 DEBUG = True
 
@@ -35,6 +36,17 @@ class ROSBag:
 
     def add_compressed_bag(self, compression_name: str, bag_path: Path) -> None:
         self.compressed_bags[compression_name] = bag_path
+
+    def get_length(self) -> float | None:
+        cmd = f"ros2 bag info {str(self.path)} | grep 'Duration:' | awk '{{print $2}}' | sed 's/s//'"
+        try:
+            duration = subprocess.check_output(cmd, shell=True, text=True).strip()
+
+            return round(float(duration), 1)
+        except subprocess.CalledProcessError as e:
+            print("[ERROR] Checking bag length:", e)
+            return None
+    
 
 
 class Compression:
@@ -86,6 +98,11 @@ class Compression:
                                         stderr=subprocess.PIPE)
 
             print(f"[INFO] Launched rosbag and compression. Waiting for rosbag to finish...")
+            bag_length = rosbag.get_length()
+            if (bag_length := rosbag.get_length()):
+                for _ in tqdm(range(int(bag_length*10)), desc="Processing bag", leave=False):
+                    time.sleep(0.1)  # Simulate work
+
             bag_proc.wait()
 
             print(f"[INFO] Rosbag finished. Waiting {self.post_delay} seconds before shutting down launch.")
@@ -155,6 +172,8 @@ class Slam:
                                            stdout=subprocess.PIPE, 
                                            stderr=subprocess.PIPE,
                                            env=env)
+
+
             slam_proc.wait()
 
             print(f"[INFO] SLAM complete. Waiting {self.post_delay}s.")
@@ -200,10 +219,14 @@ def run_slam(config: Dict[str, Any], benchmark_dir: Path, bags: List[ROSBag], co
     slam_launches = load_benchmark_process_config(Slam, config.get('slam', {}), benchmark_dir)
 
     print(f"[INFO] Starting SLAM Benchmarks...")
-    for bag in bags:
-        for compression in compression_launches:
-            for slam in slam_launches:
-                slam.launch(bag, compression)
+    total_iter = len(bags) * len(compression_launches) * len(slam_launches)
+
+    with tqdm(total=total_iter) as pbar:
+        for bag in bags:
+            for compression in compression_launches:
+                for slam in slam_launches:
+                    slam.launch(bag, compression)
+                    pbar.update(1)
 
     return slam_launches
 
