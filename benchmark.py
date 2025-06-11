@@ -115,9 +115,8 @@ class Slam:
         self.post_delay = config.get('post_delay', 5.0)
 
     def launch(self, rosbag : ROSBag, compression: Optional[Compression] = None):
-        lidar_topic = "/compressed" if compression else rosbag.point_cloud_topic  
         if compression:
-            lidar_topic = "/compressed"
+            lidar_topic = "/decompressed"
             map_path = f"{self.dir}/maps/{rosbag.name}_{compression.name}_{self.name}.simplemap"
             traj_path = f"{self.dir}/traj/{rosbag.name}_{compression.name}_{self.name}.tum"
             bag_path = rosbag.compressed_bags[compression.name]
@@ -137,6 +136,7 @@ class Slam:
             "MOLA_SIMPLEMAP_OUTPUT": map_path,
             "MOLA_SAVE_TRAJECTORY": "true",
             "MOLA_TUM_TRAJECTORY_OUTPUT": traj_path,
+            "MOLA_USE_FIXED_LIDAR_POSE": "true"
             })
 
         if self.use_gps:
