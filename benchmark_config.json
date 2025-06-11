@@ -1,15 +1,27 @@
-{
-  "bag": "/datasets/KITTI_raw/kitti_0022",
-  "rate": 0.5,
-  "read_ahead_queue_size": 1000,
-  "point_cloud_topic": "/kitti/velo/pointcloud",
-  "wait_after": 5,
-  "benchmarks": [
+{ "bags": [
     {
-      "name": "rcpcc",
-      "launch_pkg": "rcpcc",
-      "launch_file": "bag_record.launch.py",
-      "launch_args": "point_cloud_topic:=/kitti/velo/pointcloud"
+      "bag": "/datasets/KITTI_raw/kitti_0022", 
+      "rate": 0.5, 
+      "read_ahead_queue_size": 1000, 
+      "point_cloud_topic": "/kitti/velo/pointcloud", 
+      "imu_topic": "/kitti/oxts/imu",
+      "gps_topic": "/kitti/oxts/gps/fix",
+      "wait_after": 5
+    }
+  ], 
+  "preprocess": [
+    {
+      "name": "rcpcc", 
+      "launch_pkg": "rcpcc", 
+      "launch_file": "bag_record.launch.py", 
+      "launch_args": [
+        "bag_path:={bag_path}",
+        "point_cloud_topic:={point_cloud_topic}",
+        "folder_path:={stats_path}",
+        "output_topic:={output_topic}",
+        "compression_mode:=2",
+        "additional_topics:={additional_topics}"
+      ]
     }
   ]
 }
