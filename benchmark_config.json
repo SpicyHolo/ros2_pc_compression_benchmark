@@ -1,6 +1,6 @@
 { "bags": [
     {
-      "path": "/datasets/KITTI_raw/kitti_0022", 
+      "path": "/workspace/datasets/KITTI_raw/kitti_0022", 
       "read_ahead_queue_size": 1000, 
       "point_cloud_topic": "/kitti/velo/pointcloud", 
       "imu_topic": "/kitti/oxts/imu",
@@ -8,6 +8,24 @@
     }
   ], 
   "compression": [
+    {
+      "bag_rate": 0.5,
+      "name": "draco", 
+      "launch_pkg": "draco_ros2", 
+      "launch_file": "bag_record.launch.py", 
+      "launch_args": [
+        "bag_path:={bag_path}",
+        "pointcloud_topic:={point_cloud_topic}",
+        "csv_folder_path:={stats_path}",
+        "output_topic:=/decompressed_pointcloud_draco",
+        "encoding_speed:=10",
+        "decoding_speed:=10",
+        "quantization_bits:=14",
+        "additional_topics:={additional_topics}"
+      ],
+      "post_delay": 5,
+      "compressed_topic": "/decompressed_pointcloud_draco"
+    },
     {
       "bag_rate": 0.5,
       "name": "rcpcc", 

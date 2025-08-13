@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import argparse
 import json
 import os
@@ -46,8 +48,6 @@ class ROSBag:
             print("[ERROR] Checking bag length:", e)
             return None
     
-
-
 class Compression:
     def __init__(self, config: Dict[str, Any], basedir: Path):
         self.dir = Path(basedir)
@@ -57,6 +57,7 @@ class Compression:
         self.launch_args_raw = config.get('launch_args', [])
         self.bag_rate = str(config.get('bag_rate', 1.0))
         self.post_delay = config.get('post_delay', 1.0)
+        self.compressed_topic = config.get('compressed_topic', '/decompressed')
 
     def get_launch_command(self, rosbag: ROSBag) -> List[str]:
         cmd = ['ros2', 'launch', self.pkg, self.launch_file]
@@ -128,7 +129,7 @@ class Slam:
 
     def launch(self, rosbag : ROSBag, compression: Optional[Compression] = None) -> None:
         """Launch SLAM pipleine on the given rosbag."""
-        lidar_topic = "/decompressed" if compression else rosbag.point_cloud_topic
+        lidar_topic = compression.compressed_topic if compression else rosbag.point_cloud_topic
         map_path = self.dir / 'maps' / f"{rosbag.name}_{compression.name if compression else ''}_{self.name}.simplemap"
         traj_path = self.dir / 'traj' / f"{rosbag.name}_{compression.name if compression else ''}_{self.name}.tum"
         bag_path = rosbag.compressed_bags[compression.name] if compression else rosbag.path
@@ -142,12 +143,7 @@ class Slam:
 
         env = os.environ.copy()
         env.update({
-            "MOLA_LIDAR_TOPIC": lidar_topic,
-            "MOLA_GENERATE_SIMPLEMAP": "true",
-            "MOLA_SIMPLEMAP_OUTPUT": str(map_path),
-            "MOLA_SAVE_TRAJECTORY": "true",
-            "MOLA_TUM_TRAJECTORY_OUTPUT": str(traj_path),
-            "MOLA_USE_FIXED_LIDAR_POSE": "true"
+            "MOLA_USE_FIXED_LIDAR_POSE": "true",
         })
 
         if self.use_gps:
@@ -164,12 +160,23 @@ class Slam:
                   f"{compression.name if compression else 'None'}..."
             )
 
-            slam_proc = subprocess.Popen(['mola-lo-gui-rosbag2', bag_path], 
-                                           stdin=subprocess.DEVNULL, 
-                                           stdout=subprocess.PIPE, 
-                                           stderr=subprocess.PIPE,
-                                           env=env)
+            ros2_prefix = subprocess.check_output(
+                ["ros2", "pkg", "prefix", "mola_lidar_odometry"],
+                text=True
+            ).strip()
 
+            slam_cmd = ['mola-lidar-odometry-cli',
+                        f'-c {ros2_prefix}/share/mola_lidar_odometry/pipelines/lidar3d-default.yaml',
+                        f'--input-rosbag2 {bag_path}',
+                        f'--lidar-sensor-label {lidar_topic}',
+                        f'--output-tum-path {str(traj_path)}',
+                        f'--output-simplemap {str(map_path)}']
+
+            slam_proc = subprocess.Popen(slam_cmd, 
+                                        #    stdin=subprocess.DEVNULL, 
+                                        #    stdout=subprocess.PIPE, 
+                                        #    stderr=subprocess.PIPE,
+                                           env=env)
 
             slam_proc.wait()
 
@@ -216,9 +223,17 @@ def run_slam(config: Dict[str, Any], benchmark_dir: Path, bags: List[ROSBag], co
     slam_launches = load_benchmark_process_config(Slam, config.get('slam', {}), benchmark_dir)
 
     print(f"[INFO] Starting SLAM Benchmarks...")
-    total_bags = len(bags) * len(compression_launches) * len(slam_launches)
+    total_bags = len(bags) * len(compression_launches) * len(slam_launches) 
+    total_bags += len(bags) * len(slam_launches)
     i = 1
     for bag in bags:
+        # no compression
+        for slam in slam_launches:
+            print(f"[INFO] Starting bag {i}/{total_bags}")
+            slam.launch(bag)
+            i += 1
+
+        # for each compression
         for compression in compression_launches:
             for slam in slam_launches:
                 print(f"[INFO] Starting bag {i}/{total_bags}")
@@ -247,7 +262,7 @@ def load_pickle(path: Path) -> Any:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run rosbag + launch file benchmarks from a config JSON.")
-    parser.add_argument('--config', required=True, help='Path to JSON benchmark config file')
+    parser.add_argument('--config', type=str, default="./benchmark_config.json", help='Path to JSON benchmark config file')
     parser.add_argument('--load_compress', type=str, default="", help='Path to previously saved compression pickle')
     args = parser.parse_args()
     
