@@ -5,11 +5,18 @@
       "point_cloud_topic": "/kitti/velo/pointcloud", 
       "imu_topic": "/kitti/oxts/imu",
       "gps_topic": "/kitti/oxts/gps/fix"
+    },
+    {
+      "path": "/workspace/datasets/KITTI_raw/kitti_0023", 
+      "read_ahead_queue_size": 1000, 
+      "point_cloud_topic": "/kitti/velo/pointcloud", 
+      "imu_topic": "/kitti/oxts/imu",
+      "gps_topic": "/kitti/oxts/gps/fix"
     }
   ], 
   "compression": [
     {
-      "bag_rate": 0.5,
+      "bag_rate": 1.0,
       "name": "draco", 
       "launch_pkg": "draco_ros2", 
       "launch_file": "bag_record.launch.py", 
@@ -27,7 +34,7 @@
       "compressed_topic": "/decompressed_pointcloud_draco"
     },
     {
-      "bag_rate": 0.5,
+      "bag_rate": 1.0,
       "name": "rcpcc", 
       "launch_pkg": "rcpcc", 
       "launch_file": "bag_record.launch.py", 
@@ -44,9 +51,14 @@
   ],
   "slam": [
     {
+      "name": "kiss",
+      "visualize": false,
+      "post_delay": 5
+    },
+    {
       "name": "mola",
-      "imu": true,
-      "gps": true,
+      "use_gps": true,
+      "use_emu": true,
       "post_delay": 5
     }
   ]
