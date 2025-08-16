@@ -280,13 +280,13 @@ def run_compression(config: Dict[str, Any], benchmark_dir: Path, cache: Optional
             compression.launch(bag)
             i += 1
 
-        pickle_path = benchmark_dir / "compression_cache.pkl"
-        with open(pickle_path, 'wb') as f:
-            pickle.dump({
-                'bags': bags, 
-                'compression_launches': compression_launches, 
-                'benchmark_dir': benchmark_dir
-            }, f)
+    pickle_path = benchmark_dir / "compression_cache.pkl"
+    with open(pickle_path, 'wb') as f:
+        pickle.dump({
+            'bags': bags, 
+            'compression_launches': compression_launches, 
+            'benchmark_dir': benchmark_dir
+        }, f)
 
     return bags, compression_launches, benchmark_dir
 
