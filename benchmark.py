@@ -8,6 +8,7 @@ import signal
 import subprocess
 import time
 import shutil
+import sys
 
 from datetime import datetime
 from pathlib import Path
@@ -86,24 +87,23 @@ class Compression:
         try:
             launch_cmd = self.get_launch_command(rosbag)
             launch_proc = subprocess.Popen(launch_cmd, 
-                                           stdin=subprocess.DEVNULL, 
-                                           stdout=subprocess.PIPE, 
-                                           stderr=subprocess.PIPE,
+                                           stdin=subprocess.DEVNULL,
+                                           stdout=subprocess.DEVNULL,
                                            preexec_fn=os.setsid)
             if DEBUG:
                 print(f"[magenta][DEBUG] Launching compression {self.name}:")
                 print(f"[magenta]{launch_cmd}")
 
-            bag_cmd = ['ros2', 'bag', 'play', rosbag.path, '--rate', self.bag_rate]
+            bag_cmd = ['ros2', 'bag', 'play', rosbag.path, '--rate', self.bag_rate, '--disable-keyboard-controls']
 
             if DEBUG:
                 print(f"[magenta][DEBUG] Starting bag {self.name}:")
                 print(f"[magenta]{bag_cmd}")
 
             bag_proc = subprocess.Popen(bag_cmd, 
-                                        stdin=subprocess.DEVNULL, 
-                                        stdout=subprocess.PIPE, 
-                                        stderr=subprocess.PIPE)
+                                        stdin=subprocess.DEVNULL,
+                                        stdout=subprocess.DEVNULL,
+                                        preexec_fn=os.setsid)
 
             print(f"[green][INFO] Launched rosbag and compression. Waiting for rosbag to finish...")
             if (bag_length := rosbag.get_length()):
@@ -115,7 +115,7 @@ class Compression:
             time.sleep(self.post_delay)
 
             # Terminate the launch process group
-            os.killpg(os.getpgid(launch_proc.pid), signal.SIGTERM)
+            os.killpg(os.getpgid(launch_proc.pid), signal.SIGINT)
             print("[green][INFO] Compression terminated.")
 
             rosbag.add_compressed_bag(self.name, self.dir / 'compressed' / self.name / rosbag.name)
@@ -124,7 +124,11 @@ class Compression:
             print("[green][INFO] Interrupted. Cleaning up...")
             for proc in (bag_proc, launch_proc):
                 if proc and proc.poll() is None:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+                    except ProcessLookupError:
+                        pass
+            sys.exit(1)
 
 # //////////////////////////////////////////
 # SLAM
@@ -155,7 +159,7 @@ class BaseSLAM:
         except KeyboardInterrupt:
             print("[green][INFO] Interrupted. Cleaning up...")
             if slam_proc and slam_proc.poll() is None:
-                os.killpg(os.getpgid(slam_proc.pid), signal.SIGTERM)
+                os.killpg(os.getpgid(slam_proc.pid), signal.SIGINT)
 
     def build_command(self, rosbag, compression: Optional[Any]):
         """Child classes must implement this method to build the SLAM command."""
