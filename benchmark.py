@@ -71,9 +71,9 @@ class Compression:
         dir = self.dir / "compressed" / self.name
         args = [
             arg.format(
-                bag_path = dir / rosbag.name,
+                bag_path = dir / rosbag.name / rosbag.name,
                 point_cloud_topic = rosbag.point_cloud_topic,
-                stats_path = dir / 'stats',
+                stats_path = dir / rosbag.name / 'stats',
                 output_topic = "/decompressed",
                 additional_topics = additional_topics
             )
@@ -118,7 +118,7 @@ class Compression:
             os.killpg(os.getpgid(launch_proc.pid), signal.SIGINT)
             print("[green][INFO] Compression terminated.")
 
-            rosbag.add_compressed_bag(self.name, self.dir / 'compressed' / self.name / rosbag.name)
+            rosbag.add_compressed_bag(self.name, self.dir / 'compressed' / self.name / rosbag.name / rosbag.name)
 
         except KeyboardInterrupt:
             print("[green][INFO] Interrupted. Cleaning up...")
