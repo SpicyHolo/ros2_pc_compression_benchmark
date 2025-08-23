@@ -173,15 +173,21 @@ class KissSlam(BaseSLAM):
     def __init__(self, config: Dict[str, Any], dir: Path):
         super().__init__(config, dir)
         self.visualize =  config.get('visualize', False)
+        self.config = config
 
     def build_command(self, rosbag, compression: Optional[Any]):
         lidar_topic = compression.compressed_topic if compression else rosbag.point_cloud_topic
         bag_path = rosbag.compressed_bags[compression.name] if compression else rosbag.path
+        config_path = self.config.get('config', "")
 
-        cmd = ["kiss_slam_pipeline", "--dataloader", "rosbag", "--topic", lidar_topic, bag_path] 
+        cmd = ["kiss_slam_pipeline", "--dataloader", "rosbag", "--topic", lidar_topic]
+        if config_path:
+            cmd.extend(["--config", config_path])
+
         if self.visualize:
             cmd.append("--visualize")
-
+            
+        cmd.append(bag_path)
         return cmd
 
     
@@ -198,7 +204,13 @@ class KissSlam(BaseSLAM):
             print(f"[green][INFO] SLAM complete. Copying results...")
 
             # Example copy commands
-            shutil.copytree(Path("slam_output") / "latest", self.dir / "kiss" / rosbag.name / compression.name if compression else "raw", dirs_exist_ok=True)
+            (self.dir / "kiss" / rosbag.name).mkdir(parents=True, exist_ok=True)
+
+            if compression:
+                shutil.copytree(Path("slam_output") / "latest", self.dir / "kiss" / rosbag.name / compression.name, dirs_exist_ok=True)
+            else:
+                shutil.copytree(Path("slam_output") / "latest", self.dir / "kiss" / rosbag.name / "raw", dirs_exist_ok=True)
+
             print(f"[green][INFO] Copy complete. Waiting {self.post_delay}s.")
             time.sleep(self.post_delay)
 
@@ -284,6 +296,7 @@ def run_compression(config: Dict[str, Any], benchmark_dir: Path, cache: Optional
             compression.launch(bag)
             i += 1
 
+    (benchmark_dir).mkdir(parents=True, exist_ok=True)
     pickle_path = benchmark_dir / "compression_cache.pkl"
     with open(pickle_path, 'wb') as f:
         pickle.dump({
