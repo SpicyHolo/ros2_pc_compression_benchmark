@@ -245,7 +245,7 @@ class MolaOdometry(BaseSLAM):
                     "MOLA_GENERATE_SIMPLEMAP": "true", 
                     "MOLA_SIMPLEMAP_OUTPUT": str(map_path), 
                     "MOLA_SAVE_TRAJECTORY": "true", 
-                    "MOLA_TRAJECTORY_OUTPUT": str(traj_path),
+                    "MOLA_TUM_TRAJECTORY_OUTPUT": str(traj_path),
                     "MOLA_GENERATE_SIMPLEMAP": "true", 
                     "MOLA_GENERATE_SIMPLEMAP": "true", 
                     "MOLA_WITH_GUI": "false",
