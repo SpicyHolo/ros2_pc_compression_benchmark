@@ -226,39 +226,96 @@ class MolaOdometry(BaseSLAM):
         self.use_imu = config.get('imu', False)
 
     def prepare_env(self, rosbag, compression: Optional[Any]):
+        if compression:
+            map_path = self.dir / "mola" / rosbag.name / compression.name / "map.simplemap"
+            traj_path = self.dir / "mola" / rosbag.name / compression.name / "trajectory.tum"
+            bag_path = rosbag.compressed_bags[compression.name]
+            lidar_topic = compression.compressed_topic
+        else:
+            map_path = self.dir / "mola" / rosbag.name / "raw" / "map.simplemap"
+            traj_path = self.dir / "mola" / rosbag.name / "raw" / "trajectory.tum"
+            bag_path = rosbag.path
+            lidar_topic = rosbag.point_cloud_topic
+
+        (map_path.parent).mkdir(parents=True, exist_ok=True)
+        (traj_path.parent).mkdir(parents=True, exist_ok=True)
+
         env = os.environ.copy()
-        env.update({"MOLA_USE_FIXED_LIDAR_POSE": "true"})
+        env.update({"MOLA_USE_FIXED_LIDAR_POSE": "true",
+                    "MOLA_GENERATE_SIMPLEMAP": "true", 
+                    "MOLA_SIMPLEMAP_OUTPUT": str(map_path), 
+                    "MOLA_SAVE_TRAJECTORY": "true", 
+                    "MOLA_TRAJECTORY_OUTPUT": str(traj_path),
+                    "MOLA_GENERATE_SIMPLEMAP": "true", 
+                    "MOLA_GENERATE_SIMPLEMAP": "true", 
+                    "MOLA_WITH_GUI": "false",
+                    "MOLA_INPUT_ROSBAG2": str(bag_path),
+                    "MOLA_LIDAR_TOPIC": lidar_topic
+                    })
 
         if self.use_gps:
             env["MOLA_GPS_TOPIC"] = rosbag.gps_topic
+            env["MOLA_GPS_NAME"] = rosbag.gps_topic
             env["MOLA_USE_FIXED_GPS_POSE"] = "true"
 
         if self.use_imu:
             env["MOLA_IMU_TOPIC"] = rosbag.imu_topic
+            env["MOLA_IMU_NAME"] = rosbag.imu_topic
             env["MOLA_USE_FIXED_IMU_POSE"] = "true"
         return env 
 
     def build_command(self, rosbag, compression: Optional[Any]):
-        lidar_topic = compression.compressed_topic if compression else rosbag.point_cloud_topic
-        map_path = self.dir / "maps" / f"{rosbag.name}_{compression.name if compression else ''}_{self.name}.simplemap"
-        traj_path = self.dir / "traj" / f"{rosbag.name}_{compression.name if compression else ''}_{self.name}.tum"
-        bag_path = rosbag.compressed_bags[compression.name] if compression else rosbag.path
 
         # Ensure directories exist
-        (self.dir / "maps").mkdir(parents=True, exist_ok=True)
-        (self.dir / "traj").mkdir(parents=True, exist_ok=True)
         
         ros2_prefix = subprocess.check_output(["ros2", "pkg", "prefix", "mola_lidar_odometry"], text=True).strip()
 
-        cmd = ["mola-lidar-odometry-cli",
-                    f"-c {ros2_prefix}/share/mola_lidar_odometry/pipelines/lidar3d-default.yaml",
-                    f"--input-rosbag2 {bag_path}",
-                    f"--lidar-sensor-label {lidar_topic}",
-                    f"--output-tum-path {str(traj_path)}",
-                    f"--output-simplemap {str(map_path)}"
-        ]
+        cmd = ["mola-cli", f"{ros2_prefix}/share/mola_lidar_odometry/mola-cli-launchs/lidar_odometry_from_rosbag2.yaml" ]
         return cmd
 
+    def launch(self, rosbag, compression: Optional[Any] = None) -> None:
+        """Launch the SLAM pipeline. Child classes must implement build_command and prepare_env."""
+        slam_cmd = self.build_command(rosbag, compression)
+        env = self.prepare_env(rosbag, compression)
+
+        slam_proc = None
+        try:
+            print(f"[green][INFO] Launching SLAM ({self.name}) for {rosbag.name} {compression.name if compression else ''}...")
+
+            if DEBUG:
+                print(f"[magenta]{slam_cmd}")
+
+            # start in its own process group so we can send signals to the group
+            slam_cmd = ["stdbuf",  "-oL", "-eL"] + self.build_command(rosbag, compression)
+            slam_proc = subprocess.Popen(
+                slam_cmd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                preexec_fn=os.setsid
+            )
+
+            for line in slam_proc.stdout:
+                line = line.strip()
+                print(line)
+                if "End of dataset reached! Nothing else to publish" in line:
+                    print("Detected end of dataset. Sending SIGINT...")
+                    # send SIGINT to the process group
+                    os.killpg(os.getpgid(slam_proc.pid), signal.SIGINT)
+                    break
+
+            slam_proc.wait()
+
+            print(f"[green][INFO] SLAM complete. Waiting {self.post_delay}s.")
+            time.sleep(self.post_delay)
+
+        except KeyboardInterrupt:
+            print("[green][INFO] Interrupted. Cleaning up...")
+            if slam_proc and slam_proc.poll() is None:
+                os.killpg(os.getpgid(slam_proc.pid), signal.SIGINT)
+                
 # //////////////////////////////////////////
 def load_benchmark_process_config(constructor: Callable[..., Any], config: List[Dict[str, Any]], *args: Any) -> List[Any]:
     """Load list of process configs by applying a constructor to each config entry."""
@@ -312,14 +369,14 @@ def run_slam(config: Dict[str, Any], benchmark_dir: Path, bags: List[ROSBag], co
     slam_launches = load_benchmark_process_config(slam_factory_fn, config.get('slam', {}), benchmark_dir)
 
     total_bags = len(bags) * len(compression_launches) * len(slam_launches) 
-    total_bags += len(bags) * len(slam_launches)
+    #total_bags += len(bags) * len(slam_launches)
     i = 1
     for bag in bags:
         # no compression
-        for slam in slam_launches:
-            print(f"[cyan]\nRunning SLAM {slam.name} for {bag.name} ({i}/{total_bags})")
-            slam.launch(bag)
-            i += 1
+        # for slam in slam_launches:
+        #     print(f"[cyan]\nRunning SLAM {slam.name} for {bag.name} ({i}/{total_bags})")
+        #     slam.launch(bag)
+        #     i += 1
 
         # for each compression
         for compression in compression_launches:
@@ -333,8 +390,9 @@ def run_slam(config: Dict[str, Any], benchmark_dir: Path, bags: List[ROSBag], co
 def run_benchmark(config_path: Path, result_dir: Optional[Path], compression_cache: Optional[Dict[str, Any]]) -> None:
     """Top-level entry point to run the full benchmark pipeline."""
     if result_dir:
-        benchmark_dir = Path(result_dir) 
-    benchmark_dir = Path.cwd() / Path(datetime.now().strftime("benchmark_%Y-%m-%d_%H-%M-%S"))
+        benchmark_dir = Path(result_dir)
+    else:
+        benchmark_dir = Path.cwd() / Path(datetime.now().strftime("benchmark_%Y-%m-%d_%H-%M-%S"))
     with open(config_path, 'r') as f:
         config = json.load(f)
 
