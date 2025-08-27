@@ -250,13 +250,14 @@ class MolaOdometry(BaseSLAM):
                     "MOLA_GENERATE_SIMPLEMAP": "true", 
                     "MOLA_WITH_GUI": "false",
                     "MOLA_INPUT_ROSBAG2": str(bag_path),
-                    "MOLA_LIDAR_TOPIC": lidar_topic
+                    "MOLA_LIDAR_TOPIC": lidar_topic,
+                    "MOLA_QUIT_ON_DATASET_END": "true"
                     })
 
         if self.use_gps:
-            env["MOLA_GPS_TOPIC"] = rosbag.gps_topic
-            env["MOLA_GPS_NAME"] = rosbag.gps_topic
-            env["MOLA_USE_FIXED_GPS_POSE"] = "true"
+            env["MOLA_GNSS_TOPIC"] = rosbag.gps_topic
+            env["MOLA_GNSS_NAME"] = rosbag.gps_topic
+            env["MOLA_USE_FIXED_GNSS_POSE"] = "true"
 
         if self.use_imu:
             env["MOLA_IMU_TOPIC"] = rosbag.imu_topic
@@ -286,25 +287,12 @@ class MolaOdometry(BaseSLAM):
                 print(f"[magenta]{slam_cmd}")
 
             # start in its own process group so we can send signals to the group
-            slam_cmd = ["stdbuf",  "-oL", "-eL"] + self.build_command(rosbag, compression)
+            slam_cmd =  self.build_command(rosbag, compression)
             slam_proc = subprocess.Popen(
                 slam_cmd,
                 env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                preexec_fn=os.setsid
             )
 
-            for line in slam_proc.stdout:
-                line = line.strip()
-                print(line)
-                if "End of dataset reached! Nothing else to publish" in line:
-                    print("Detected end of dataset. Sending SIGINT...")
-                    # send SIGINT to the process group
-                    os.killpg(os.getpgid(slam_proc.pid), signal.SIGINT)
-                    break
 
             slam_proc.wait()
 
